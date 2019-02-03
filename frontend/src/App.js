@@ -3,17 +3,16 @@ import axios from 'axios'
 import logo from './logo.svg';
 import './App.css';
 
-const ListFragmentChildHandler = ({children, ...rest}) =>
-  children && (<ul>
-    {children.map(v => <ListFragment {...v} child />)}
-  </ul>) || null
-
-const ListFragment = props => (
-  <li>
-    {props.title}
-    <ListFragmentChildHandler {...props} />
-  </li>
-)
+const ListFragment = ({id, title, children, setMenu, shouldShowInput, child, ...rest}) => {
+  const frag = (<React.Fragment>
+    <span className={child || "title-item"}>{title}</span>
+    {children && (<ul>
+      {children.map(v => <ListFragment key={v.id} {...v} child />)}
+      {shouldShowInput && <li><button>+</button></li>}
+    </ul>)}
+  </React.Fragment>)
+  return (child && <li>{frag}</li>) || frag
+}
 
 class List extends Component {
   constructor(props) {
@@ -51,7 +50,7 @@ class List extends Component {
   }
 
   render() {
-    return (<ListFragmentChildHandler children={this.state.data} />)
+    return (<ListFragment title="My New List" children={this.state.data} />)
   }
 }
 
