@@ -3,54 +3,81 @@ import axios from 'axios'
 import logo from './logo.svg';
 import './App.css';
 
-const ListFragment = ({id, title, children, setMenu, shouldShowInput, child, ...rest}) => {
+const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
+  const {selectedId} = listGlobal
+
+  const title = rest.title || tasks.byId[id].title
+  const children = List.getByParent(tasks, id)
+
+  const shouldShowMenu = selectedId === id
+
+  const wrapProps = {
+    onClick: e => {
+      listGlobal.setMenu(id, true)
+      e.stopPropagation()
+    }
+  }
+
   const frag = (<React.Fragment>
     <span className={child || "title-item"}>{title}</span>
+    {shouldShowMenu && child && <span>
+    </span>}
     {children && (<ul>
-      {children.map(v => <ListFragment key={v.id} {...v} child />)}
-      {shouldShowInput && <li><button>+</button></li>}
+      {children.map(v => <ListFragment listGlobal={listGlobal} key={v.id} {...v} child tasks={tasks} />)}
+      {shouldShowMenu && <li><input/></li>}
     </ul>)}
   </React.Fragment>)
-  return (child && <li>{frag}</li>) || frag
+
+  if (child)
+    return (<li {...wrapProps}>{frag}</li>)
+  else
+    return (<div {...wrapProps}>{frag}</div>)
 }
 
 class List extends Component {
   constructor(props) {
     super()
-    let data = [
-      {title: "Loading"},
-    ]
-    this.state = {data}
+    const tasks = List.generateIndexes([])
+    this.state = {tasks}
     axios.get('//localhost:3001/tasks')
       .then(res => {
         if (res.status !== 200)
           throw res
-        const indexes = List.generateIndexes(res.data)
-        const nestified = indexes.byParent.null.map(task => List.nestify(indexes, task))
-        this.setState({data: nestified})
+        const tasks = List.generateIndexes(res.data)
+        this.setState({tasks})
       })
   }
 
-  static generateIndexes(data) {
+  static getByParent(indexes, id) {
+    return (indexes.byParent[id] || []).map(id => indexes.byId[id])
+  }
+
+  static generateIndexes(data = []) {
     const byId = {}
     const byParent = {}
     for (const row of data) {
       byId[row.id] = row
       if (!byParent[row.parent])
         byParent[row.parent] = []
-      byParent[row.parent].push(row)
+      byParent[row.parent].push(row.id)
     }
     return {byId, byParent}
   }
 
-  static nestify(indexes, task) {
-    const parentTask = indexes.byId[task.parent]
-    const children = (indexes.byParent[task.id] || []).map(v => this.nestify(indexes, v))
-    return {parentTask, children, ...task}
-  }
-
   render() {
-    return (<ListFragment title="My New List" children={this.state.data} />)
+    const {selectedId} = this.state
+
+    const setMenu = (id, toSet) => {
+      if (toSet)
+        this.setState({selectedId: id})
+      else if (this.state.selectedId === id)
+        this.setState({selectedId: null})
+    }
+    const listGlobal = {
+      selectedId,
+      setMenu
+    }
+    return (<ListFragment listGlobal={listGlobal} title="My New List" id="null" tasks={this.state.tasks}/>)
   }
 }
 
