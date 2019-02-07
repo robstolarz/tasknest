@@ -4,18 +4,21 @@ import logo from './logo.svg';
 import './App.css';
 
 const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
-  const {selectedId} = listGlobal
+  const {selectedId, highlightedId} = listGlobal
 
   const title = rest.title || tasks.byId[id].title
   const children = List.getByParent(tasks, id)
 
   const shouldShowMenu = selectedId === id
+  const shouldHighlight = highlightedId === id
 
   const wrapProps = {
     onClick: e => {
       listGlobal.setMenu(id, true)
+      listGlobal.setHighlighted(id)
       e.stopPropagation()
-    }
+    },
+    className: shouldHighlight && "highlight-item"
   }
 
   const frag = (<React.Fragment>
@@ -65,7 +68,10 @@ class List extends Component {
   }
 
   render() {
-    const {selectedId} = this.state
+    const {
+      selectedId,
+      highlightedId
+    } = this.state
 
     const setMenu = (id, toSet) => {
       if (toSet)
@@ -73,9 +79,18 @@ class List extends Component {
       else if (this.state.selectedId === id)
         this.setState({selectedId: null})
     }
+
+    const setHighlighted = (id) => {
+      this.setState({highlightedId: id})
+    }
+
     const listGlobal = {
+      // state
       selectedId,
-      setMenu
+      highlightedId,
+      // actions
+      setMenu,
+      setHighlighted,
     }
     return (<ListFragment listGlobal={listGlobal} title="My New List" id="null" tasks={this.state.tasks}/>)
   }

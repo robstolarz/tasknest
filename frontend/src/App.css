@@ -5,3 +5,7 @@
   font-size: 2em;
   font-weight: bold;
 }
+
+.highlight-item {
+  box-shadow: 0px 0px 10px rgba(0,0,0,0.4);
+}
