@@ -27,7 +27,14 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
     </span>}
     {children && (<ul>
       {children.map(v => <ListFragment listGlobal={listGlobal} key={v.id} {...v} child tasks={tasks} />)}
-      {shouldShowMenu && <li><input/></li>}
+      {shouldShowMenu && <li>
+        <input
+          autoFocus
+          onBlur={() => listGlobal.setMenu(id, false)}
+          onChange={e => {listGlobal.setInput(e.target.value)}}
+          value={listGlobal.inputValue}
+        />
+      </li>}
     </ul>)}
   </React.Fragment>)
 
@@ -41,7 +48,8 @@ class List extends Component {
   constructor(props) {
     super()
     const tasks = List.generateIndexes([])
-    this.state = {tasks}
+    const inputValue = ""
+    this.state = {tasks, inputValue}
     axios.get('//localhost:3001/tasks')
       .then(res => {
         if (res.status !== 200)
@@ -70,7 +78,8 @@ class List extends Component {
   render() {
     const {
       selectedId,
-      highlightedId
+      highlightedId,
+      inputValue
     } = this.state
 
     const setMenu = (id, toSet) => {
@@ -84,13 +93,19 @@ class List extends Component {
       this.setState({highlightedId: id})
     }
 
+    const setInput = (input) => {
+      this.setState({inputValue: input})
+    }
+
     const listGlobal = {
       // state
       selectedId,
       highlightedId,
+      inputValue,
       // actions
       setMenu,
       setHighlighted,
+      setInput,
     }
     return (<ListFragment listGlobal={listGlobal} title="My New List" id="null" tasks={this.state.tasks}/>)
   }
