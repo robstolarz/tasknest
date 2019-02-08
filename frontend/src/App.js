@@ -15,7 +15,11 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
   const wrapProps = {
     onClick: e => {
       listGlobal.setMenu(id, true)
-      listGlobal.setHighlighted(id)
+      listGlobal.setHighlighted(id, true)
+      e.stopPropagation()
+    },
+    onMouseOver: e => {
+      listGlobal.setHighlighted(id, true)
       e.stopPropagation()
     },
     className: shouldHighlight && "highlight-item"
@@ -30,7 +34,7 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
       {shouldShowMenu && <li>
         <input
           autoFocus
-          onBlur={() => listGlobal.setMenu(id, false)}
+          onBlur={e => {listGlobal.setMenu(id, false); listGlobal.setHighlighted(id, false)}}
           onChange={e => {listGlobal.setInput(e.target.value)}}
           value={listGlobal.inputValue}
         />
@@ -89,8 +93,11 @@ class List extends Component {
         this.setState({selectedId: null})
     }
 
-    const setHighlighted = (id) => {
-      this.setState({highlightedId: id})
+    const setHighlighted = (id, toSet) => {
+      if (!this.state.selectedId || this.state.selectedId === id)
+        this.setState({highlightedId: id})
+      if (!toSet && this.state.highlightedId === id)
+        this.setState({highlightedId: null})
     }
 
     const setInput = (input) => {
