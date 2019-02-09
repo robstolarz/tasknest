@@ -32,12 +32,15 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
     {children && (<ul>
       {children.map(v => <ListFragment listGlobal={listGlobal} key={v.id} {...v} child tasks={tasks} />)}
       {shouldShowMenu && <li>
-        <input
-          autoFocus
-          onBlur={e => {listGlobal.setMenu(id, false); listGlobal.setHighlighted(id, false)}}
-          onChange={e => {listGlobal.setInput(e.target.value)}}
-          value={listGlobal.inputValue}
-        />
+        <form onSubmit={e => {e.preventDefault(); listGlobal.addChild(id, listGlobal.inputValue);}}>
+          <input
+            autoFocus
+            onBlur={e => {listGlobal.setMenu(id, false); listGlobal.setHighlighted(id, false)}}
+            onChange={e => {listGlobal.setInput(e.target.value)}}
+            value={listGlobal.inputValue}
+          />
+          <button type="submit">+</button>
+        </form>
       </li>}
     </ul>)}
   </React.Fragment>)
@@ -104,6 +107,19 @@ class List extends Component {
       this.setState({inputValue: input})
     }
 
+    const addChild = async (id, input) => {
+      const res = await axios.post("//localhost:3001/tasks", {title: input, parent: id}, {headers: {'Prefer': 'return=representation'}})
+      const {data: newItems} = res
+      const newItem = newItems[0]
+      const byId = {...this.state.tasks.byId, [newItem.id]: newItem}
+      const byParentPreArray = this.state.tasks.byParent[id] || []
+      const byParentPostArray = [...byParentPreArray, newItem.id]
+      const byParent = {...this.state.tasks.byParent, [id]: byParentPostArray}
+      const tasks = {byId, byParent}
+      const inputValue = ""
+      this.setState({tasks, inputValue})
+    }
+
     const listGlobal = {
       // state
       selectedId,
@@ -113,6 +129,8 @@ class List extends Component {
       setMenu,
       setHighlighted,
       setInput,
+
+      addChild,
     }
     return (<ListFragment listGlobal={listGlobal} title="My New List" id="null" tasks={this.state.tasks}/>)
   }
