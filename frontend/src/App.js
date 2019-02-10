@@ -28,6 +28,7 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
   const frag = (<React.Fragment>
     <span className={child || "title-item"} onClick={showMenuHandler}>{title}</span>
     {shouldShowMenu && child && <span>
+      <button type="button" onClick={() => {listGlobal.remove(id)}}>delete</button>
     </span>}
     {children && (<ul>
       {children.map(v => <ListFragment listGlobal={listGlobal} key={v.id} {...v} child tasks={tasks} />)}
@@ -124,6 +125,25 @@ class List extends Component {
       this.setState({tasks, inputValue})
     }
 
+    // really beginning to wish I had used immer. oh well.
+    const remove = async id => {
+      const res = await axios.delete(`//localhost:3001/tasks?id=eq.${id}`)
+      const task = this.state.tasks.byId[id]
+
+      const byParentArray = [...this.state.tasks.byParent[task.parent]]
+      const i = byParentArray.indexOf(id) // and I should've used a Set here, oh well
+      byParentArray[i] = byParentArray[byParentArray.length-1]
+      byParentArray.pop()
+
+      const byParent = {...this.state.tasks.byParent, [task.parent]: byParentArray}
+
+      const byId = {...this.state.tasks.byId}
+      delete byId[id]
+
+      const tasks = {byId, byParent}
+      this.setState({tasks})
+    }
+
     const listGlobal = {
       // state
       selectedId,
@@ -135,6 +155,7 @@ class List extends Component {
       setInput,
 
       addChild,
+      remove,
     }
     return (<ListFragment listGlobal={listGlobal} title="My New List" id="null" tasks={this.state.tasks}/>)
   }
