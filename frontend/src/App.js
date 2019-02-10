@@ -14,12 +14,11 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
 
   const wrapProps = {
     onClick: e => {
-      listGlobal.setMenu(id, true)
-      listGlobal.setHighlighted(id, true)
+      listGlobal.setSelection(id, {toSetMenu: !shouldShowMenu, toSetHighlighted: true})
       e.stopPropagation()
     },
     onMouseOver: e => {
-      listGlobal.setHighlighted(id, true)
+      listGlobal.setSelection(id, {toSetHighlighted: true})
       e.stopPropagation()
     },
     className: shouldHighlight && "highlight-item"
@@ -35,7 +34,6 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
         <form onSubmit={e => {e.preventDefault(); listGlobal.addChild(id, listGlobal.inputValue);}}>
           <input
             autoFocus
-            onBlur={e => {listGlobal.setMenu(id, false); listGlobal.setHighlighted(id, false)}}
             onChange={e => {listGlobal.setInput(e.target.value)}}
             value={listGlobal.inputValue}
           />
@@ -89,18 +87,23 @@ class List extends Component {
       inputValue
     } = this.state
 
-    const setMenu = (id, toSet) => {
-      if (toSet)
-        this.setState({selectedId: id})
-      else if (this.state.selectedId === id)
-        this.setState({selectedId: null})
-    }
+    const setSelection = (id, {toSetMenu, toSetHighlighted}) => {
+      let {selectedId, highlightedId} = this.state
+      if (typeof toSetMenu === "boolean") {
+        if (toSetMenu)
+          selectedId = id
+        else if (selectedId === id)
+          selectedId = null
+      }
 
-    const setHighlighted = (id, toSet) => {
-      if (!this.state.selectedId || this.state.selectedId === id)
-        this.setState({highlightedId: id})
-      if (!toSet && this.state.highlightedId === id)
-        this.setState({highlightedId: null})
+      if (typeof toSetHighlighted === "boolean") {
+        if (!selectedId || selectedId === id)
+          highlightedId = id
+        if (!toSetHighlighted && highlightedId === id)
+          highlightedId = null
+      }
+
+      this.setState({selectedId, highlightedId})
     }
 
     const setInput = (input) => {
@@ -126,8 +129,8 @@ class List extends Component {
       highlightedId,
       inputValue,
       // actions
-      setMenu,
-      setHighlighted,
+      setSelection,
+
       setInput,
 
       addChild,
