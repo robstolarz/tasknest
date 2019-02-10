@@ -13,10 +13,6 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
   const shouldHighlight = highlightedId === id
 
   const wrapProps = {
-    onClick: e => {
-      listGlobal.setSelection(id, {toSetMenu: !shouldShowMenu, toSetHighlighted: true})
-      e.stopPropagation()
-    },
     onMouseOver: e => {
       listGlobal.setSelection(id, {toSetHighlighted: true})
       e.stopPropagation()
@@ -24,8 +20,13 @@ const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
     className: shouldHighlight && "highlight-item"
   }
 
+  const showMenuHandler = e => {
+    listGlobal.setSelection(id, {toSetMenu: !shouldShowMenu, toSetHighlighted: true})
+    e.stopPropagation()
+  }
+
   const frag = (<React.Fragment>
-    <span className={child || "title-item"}>{title}</span>
+    <span className={child || "title-item"} onClick={showMenuHandler}>{title}</span>
     {shouldShowMenu && child && <span>
     </span>}
     {children && (<ul>
