@@ -57,7 +57,7 @@ class List extends Component {
     const tasks = List.generateIndexes([])
     const inputValue = ""
     this.state = {tasks, inputValue}
-    axios.get('//localhost:3001/tasks')
+    axios.get('/api/tasks')
       .then(res => {
         if (res.status !== 200)
           throw res
@@ -113,7 +113,7 @@ class List extends Component {
     }
 
     const addChild = async (id, input) => {
-      const res = await axios.post("//localhost:3001/tasks", {title: input, parent: id}, {headers: {'Prefer': 'return=representation'}})
+      const res = await axios.post("/api/tasks", {title: input, parent: id}, {headers: {'Prefer': 'return=representation'}})
       const {data: newItems} = res
       const newItem = newItems[0]
       const byId = {...this.state.tasks.byId, [newItem.id]: newItem}
@@ -127,7 +127,7 @@ class List extends Component {
 
     // really beginning to wish I had used immer. oh well.
     const remove = async id => {
-      const res = await axios.delete(`//localhost:3001/tasks?id=eq.${id}`)
+      const res = await axios.delete(`/api/tasks?id=eq.${id}`)
       const task = this.state.tasks.byId[id]
 
       const byParentArray = [...this.state.tasks.byParent[task.parent]]
