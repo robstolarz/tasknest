@@ -1,174 +1,188 @@
 import React, { Component } from 'react';
 import axios from 'axios'
+import { configureStore, createAction, createReducer } from 'redux-starter-kit'
+import { Provider, connect } from 'react-redux'
 import logo from './logo.svg';
 import './App.css';
 
-const ListFragment = ({listGlobal, id, child, tasks, ...rest}) => {
-  const {selectedId, highlightedId} = listGlobal
+function generateIndexes(data = []) {
+  const byId = {}
+  const byParent = {}
+  for (const row of data) {
+    byId[row.id] = row
+    if (!byParent[row.parent])
+      byParent[row.parent] = []
+    byParent[row.parent].push(row.id)
+  }
+  return {byId, byParent}
+}
 
-  const title = rest.title || tasks.byId[id].title
-  const children = List.getByParent(tasks, id)
+const getTasksRecv = createAction('list/getTasksRecv')
+const setShowingMenu = createAction('list/setShowingMenu')
+const setHighlighted = createAction('list/setHighlighted')
+const setInput = createAction('list/setInput')
+const addChildRecv = createAction('list/addChildRecv')
+const removeRecv = createAction('list/removeRecv')
 
-  const shouldShowMenu = selectedId === id
-  const shouldHighlight = highlightedId === id
+const _ListContentPart = ({dispatch, id, content, highlightStatus, onClick}) => {
+  if (!content)
+    return "List title component goes here"
+  return <span onClick={onClick}>
+    {content.title}
+    {highlightStatus === "menu" && <button type="button" onClick={() => {dispatch(remove({id}))}}>delete</button> }
+  </span>
+}
+const ListContentPart = connect(
+  (state, ownProps) => ({
+    content: state.tasks.byId[ownProps.id],
+    highlightStatus: (state.highlightedId === ownProps.id) && (state.isMenu ? "menu" : "highlight"),
+  })
+)(_ListContentPart)
+
+const addChild = ({id, input}) => {
+  return async dispatch => {
+    const res = await axios.post("/api/tasks", {title: input, parent: id}, {headers: {'Prefer': 'return=representation'}})
+    const {data: newItems} = res
+    const newItem = newItems[0]
+    dispatch(addChildRecv({parentId: id, newItem}))
+  }
+}
+const remove = ({id}) => {
+  return async dispatch => {
+    const res = await axios.delete(`/api/tasks?id=eq.${id}`)
+    dispatch(removeRecv({id}))
+  }
+}
+const _ListLayoutPart = ({dispatch, id, childIDs, highlightStatus, inputValue, addChild, remove, setHighlighted, setShowingMenu, setInput}) => {
+  // TODO: refactor this out to a component
+  const ListChildrenPart = ({childIDs = []}) => (<ul>
+    {childIDs.map(id => <ListLayoutPart key={id} id={id} />)}
+    {/* TODO: also this component */ highlightStatus === "menu" && <li>
+      <form onSubmit={e => {e.preventDefault(); addChild({id, input: inputValue});}}>
+        <input
+          autoFocus
+          onChange={e => setInput({input: e.target.value})}
+          value={inputValue}
+        />
+        <button type="submit">+</button>
+      </form>
+    </li>}
+  </ul>)
 
   const wrapProps = {
     onMouseOver: e => {
-      listGlobal.setSelection(id, {toSetHighlighted: true})
+      setHighlighted({id})
       e.stopPropagation()
     },
-    className: shouldHighlight && "highlight-item"
+    className: highlightStatus && "highlight-item" || undefined
   }
 
   const showMenuHandler = e => {
-    listGlobal.setSelection(id, {toSetMenu: !shouldShowMenu, toSetHighlighted: true})
+    setShowingMenu({id, toSetMenu: !(highlightStatus === "menu")})
     e.stopPropagation()
   }
 
-  const frag = (<React.Fragment>
-    <span className={child || "title-item"} onClick={showMenuHandler}>{title}</span>
-    {shouldShowMenu && child && <span>
-      <button type="button" onClick={() => {listGlobal.remove(id)}}>delete</button>
-    </span>}
-    {children && (<ul>
-      {children.map(v => <ListFragment listGlobal={listGlobal} key={v.id} {...v} child tasks={tasks} />)}
-      {shouldShowMenu && <li>
-        <form onSubmit={e => {e.preventDefault(); listGlobal.addChild(id, listGlobal.inputValue);}}>
-          <input
-            autoFocus
-            onChange={e => {listGlobal.setInput(e.target.value)}}
-            value={listGlobal.inputValue}
-          />
-          <button type="submit">+</button>
-        </form>
-      </li>}
-    </ul>)}
-  </React.Fragment>)
+  return (
+    <li {...wrapProps}>
+      <ListContentPart id={id} onClick={showMenuHandler}/>
+      <ListChildrenPart childIDs={childIDs} />
+    </li>
+  )
+}
+const ListLayoutPart = connect(
+  (state, ownProps) => ({
+    childIDs: state.tasks.byParent[ownProps.id],
+    inputValue: state.inputValue,
+    // TODO: highlightStatus selector
+    highlightStatus: (state.highlightedId === ownProps.id) && (state.isMenu ? "menu" : "highlight"),
+  }),
+  {addChild, remove, setHighlighted, setShowingMenu, setInput}
+)(_ListLayoutPart)
 
-  if (child)
-    return (<li {...wrapProps}>{frag}</li>)
-  else
-    return (<div {...wrapProps}>{frag}</div>)
+
+const _List = state => {
+  if (!state.tasks.byParent.null)
+    return "Tasks haven't loaded yet, but that's alright! :D"
+  return (<ListLayoutPart id={null} />)
+}
+const List = connect(
+  state => ({tasks: state.tasks})
+)(_List)
+
+const _reducers = {
+  [getTasksRecv]: (state, {payload: {tasks}}) => {state.tasks = tasks},
+  [setShowingMenu] : (state, {payload: {id, toSetMenu}}) => {
+    state.isMenu = toSetMenu
+    if (state.highlightedId !== id && toSetMenu)
+      state.highlightedId = id
+  },
+
+  [setHighlighted] : (state, {payload: {id}}) => {
+    if (!state.isMenu)
+      state.highlightedId = id
+  },
+
+  [setInput] : (state, {payload: {input}}) => {
+    state.inputValue = input
+  },
+
+  [addChildRecv]: (state, {payload: {parentId, newItem}}) => {
+    state.tasks.byId[newItem.id] = newItem
+    if (!state.tasks.byParent[parentId])
+      state.tasks.byParent[parentId] = []
+
+    state.tasks.byParent[parentId].push(newItem.id)
+    state.inputValue = ""
+  },
+
+
+  [removeRecv]: (state, {payload: {id}}) => {
+    const task = state.tasks.byId[id]
+
+    const byParentArray = state.tasks.byParent[task.parent]
+    const i = byParentArray.indexOf(id) // and I should've used a Set here, oh well
+    byParentArray[i] = byParentArray[byParentArray.length-1]
+    byParentArray.pop()
+
+    delete state.tasks.byId[id]
+  },
 }
 
-class List extends Component {
-  constructor(props) {
-    super()
-    const tasks = List.generateIndexes([])
-    const inputValue = ""
-    this.state = {tasks, inputValue}
-    axios.get('/api/tasks')
-      .then(res => {
-        if (res.status !== 200)
-          throw res
-        const tasks = List.generateIndexes(res.data)
-        this.setState({tasks})
-      })
-  }
+const tasks = generateIndexes([])
+const inputValue = ""
+const state = {tasks, inputValue}
 
-  static getByParent(indexes, id) {
-    return (indexes.byParent[id] || []).map(id => indexes.byId[id])
-  }
-
-  static generateIndexes(data = []) {
-    const byId = {}
-    const byParent = {}
-    for (const row of data) {
-      byId[row.id] = row
-      if (!byParent[row.parent])
-        byParent[row.parent] = []
-      byParent[row.parent].push(row.id)
-    }
-    return {byId, byParent}
-  }
-
-  render() {
-    const {
-      selectedId,
-      highlightedId,
-      inputValue
-    } = this.state
-
-    const setSelection = (id, {toSetMenu, toSetHighlighted}) => {
-      let {selectedId, highlightedId} = this.state
-      if (typeof toSetMenu === "boolean") {
-        if (toSetMenu)
-          selectedId = id
-        else if (selectedId === id)
-          selectedId = null
-      }
-
-      if (typeof toSetHighlighted === "boolean") {
-        if (!selectedId || selectedId === id)
-          highlightedId = id
-        if (!toSetHighlighted && highlightedId === id)
-          highlightedId = null
-      }
-
-      this.setState({selectedId, highlightedId})
-    }
-
-    const setInput = (input) => {
-      this.setState({inputValue: input})
-    }
-
-    const addChild = async (id, input) => {
-      const res = await axios.post("/api/tasks", {title: input, parent: id}, {headers: {'Prefer': 'return=representation'}})
-      const {data: newItems} = res
-      const newItem = newItems[0]
-      const byId = {...this.state.tasks.byId, [newItem.id]: newItem}
-      const byParentPreArray = this.state.tasks.byParent[id] || []
-      const byParentPostArray = [...byParentPreArray, newItem.id]
-      const byParent = {...this.state.tasks.byParent, [id]: byParentPostArray}
-      const tasks = {byId, byParent}
-      const inputValue = ""
-      this.setState({tasks, inputValue})
-    }
-
-    // really beginning to wish I had used immer. oh well.
-    const remove = async id => {
-      const res = await axios.delete(`/api/tasks?id=eq.${id}`)
-      const task = this.state.tasks.byId[id]
-
-      const byParentArray = [...this.state.tasks.byParent[task.parent]]
-      const i = byParentArray.indexOf(id) // and I should've used a Set here, oh well
-      byParentArray[i] = byParentArray[byParentArray.length-1]
-      byParentArray.pop()
-
-      const byParent = {...this.state.tasks.byParent, [task.parent]: byParentArray}
-
-      const byId = {...this.state.tasks.byId}
-      delete byId[id]
-
-      const tasks = {byId, byParent}
-      this.setState({tasks})
-    }
-
-    const listGlobal = {
-      // state
-      selectedId,
-      highlightedId,
-      inputValue,
-      // actions
-      setSelection,
-
-      setInput,
-
-      addChild,
-      remove,
-    }
-    return (<ListFragment listGlobal={listGlobal} title="My New List" id="null" tasks={this.state.tasks}/>)
-  }
+// TODO: why in the sweet merciful world do I need this
+const okUndefined = fn => (state, ...rest) => {
+  if (typeof state === 'undefined')
+    return null
+  return fn(state, ...rest)
 }
+const reducer = okUndefined(createReducer(state, _reducers))
+
+const store = configureStore({ reducer, preloadedState: state })
 
 class App extends Component {
   render() {
     return (
-      <div className="App">
-        <List />
-      </div>
+      <Provider store={store}>
+        <div className="App">
+          <List />
+        </div>
+      </Provider>
     );
   }
 }
+
+const getTasks = () => dispatch => {
+  axios.get('/api/tasks')
+    .then(res => {
+      if (res.status !== 200)
+        throw res
+      const tasks = generateIndexes(res.data)
+      dispatch(getTasksRecv({tasks}))
+    })
+}
+store.dispatch(getTasks())
 
 export default App;
