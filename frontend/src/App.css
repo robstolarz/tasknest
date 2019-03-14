@@ -4,6 +4,10 @@
   font-family: 'Oxygen', sans-serif;
 }
 
+.App > li {
+  display: inherit;
+}
+
 .title-item {
   font-size: 2em;
   font-weight: bold;
