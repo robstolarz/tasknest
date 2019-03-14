@@ -26,7 +26,7 @@ const removeRecv = createAction('list/removeRecv')
 
 const _ListContentPart = ({dispatch, id, content, highlightStatus, onClick}) => {
   if (!content)
-    return "List title component goes here"
+    return <span onClick={onClick} className="title-item">List title component goes here</span>
   return <span onClick={onClick}>
     {content.title}
     {highlightStatus === "menu" && <button type="button" onClick={() => {dispatch(remove({id}))}}>delete</button> }
